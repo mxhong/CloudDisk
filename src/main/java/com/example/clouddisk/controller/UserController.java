@@ -4,6 +4,7 @@ import com.example.clouddisk.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -12,17 +13,17 @@ public class UserController {
     private final UserService userService;
 
     @Autowired
-    public UserController(UserService userService) {
+    public UserController(@RequestParam UserService userService) {
         this.userService = userService;
     }
 
     @PostMapping("/register")
-    public String register(String username, String password) {
+    public String register(@RequestParam String username, @RequestParam String password) {
         return userService.register(username, password);
     }
 
     @PostMapping("/login")
-    public String login(String username, String password) {
+    public String login(@RequestParam String username, @RequestParam String password) {
         return userService.login(username, password);
     }
 }
