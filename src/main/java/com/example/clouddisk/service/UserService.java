@@ -2,6 +2,8 @@ package com.example.clouddisk.service;
 
 import com.example.clouddisk.model.User;
 import com.example.clouddisk.mapper.UserMapper;
+import com.example.clouddisk.util.JWUtil;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -43,7 +45,8 @@ public class UserService {
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             return "Wrong password";
         }
-        return "Login success";
+//        return "Login success";
+        return JWUtil.generateJWT(user.getUsername());
     }
 
 }
