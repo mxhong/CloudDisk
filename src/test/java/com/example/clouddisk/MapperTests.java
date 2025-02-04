@@ -24,18 +24,21 @@ public class MapperTests {
         List<User> Users = userMapper.findAll();
         System.out.println(Users);
 
-        String userName = "testuser";
-        User user = userMapper.findByUsername(userName);
-        System.out.println(user);
+//        String userName = "mxhong";
+//        User user = userMapper.findByUsername(userName);
+//        System.out.println(user.getUsername());
+        User user = new User();
+        user.setUsername("mxhong");
+        System.out.println(user.getUsername());
     }
 
     @Test
     public void testFileMetaDataMapper() {
-        List<FileMetaData> fileMetaDataList = fileMetaDataMapper.findAll();
-        System.out.println(fileMetaDataList);
-
-        Long userId = 1L;
-        List<FileMetaData> filesByUserId = fileMetaDataMapper.findByUserId(userId);
-        System.out.println(filesByUserId);
+//        List<FileMetaData> fileMetaDataList = fileMetaDataMapper.findAll();
+//        System.out.println(fileMetaDataList);
+//
+//        Long userId = 1L;
+//        List<FileMetaData> filesByUserId = fileMetaDataMapper.findByUserId(userId);
+//        System.out.println(filesByUserId);
     }
 }
