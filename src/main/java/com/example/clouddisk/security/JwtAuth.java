@@ -1,13 +1,17 @@
 package com.example.clouddisk.security;
 
+import lombok.Getter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 
 public class JwtAuth extends AbstractAuthenticationToken {
-    private final String username;
+    private final Long userId;
+    @Getter
+    private final String role;
 
-    public JwtAuth(String username) {
+    public JwtAuth(Long userId, String role) {
         super(null);
-        this.username = username;
+        this.userId = userId;
+        this.role = role;
         setAuthenticated(true);
     }
 
@@ -18,6 +22,7 @@ public class JwtAuth extends AbstractAuthenticationToken {
 
     @Override
     public Object getPrincipal() {
-        return username;
+        return userId;
     }
+
 }

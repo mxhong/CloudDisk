@@ -9,5 +9,8 @@ public class FileMetaData {
     private String filePath;
     private Long userId;
     private Long size;
-    private String uploadTime;
+    private String createdAt;
+    private String updatedAt;
+    private boolean isDirectory;
+    private Long parentId;
 }
