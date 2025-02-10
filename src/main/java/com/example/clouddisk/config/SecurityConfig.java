@@ -28,7 +28,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/user/register", "/user/login").permitAll() // 允许访问
+                    .requestMatchers("/user/register", "/user/login",
+                            "/user/refresh-token").permitAll() // 允许访问
                     .anyRequest().authenticated() // 其他请求需要认证
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

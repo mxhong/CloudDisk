@@ -4,7 +4,6 @@ import com.example.clouddisk.mapper.FileMetaDataMapper;
 import com.example.clouddisk.model.FileMetaData;
 import com.example.clouddisk.model.User;
 import com.example.clouddisk.mapper.UserMapper;
-import com.example.clouddisk.util.JwtUtil;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +27,8 @@ public class UserService {
     private String uploadDir;
 
     @Autowired
-    public UserService(UserMapper userMapper, BCryptPasswordEncoder passwordEncoder, FileMetaDataMapper fileMetaDataMapper) {
+    public UserService(UserMapper userMapper, BCryptPasswordEncoder passwordEncoder,
+                       FileMetaDataMapper fileMetaDataMapper) {
         this.userMapper = userMapper;
         this.fileMetaDataMapper = fileMetaDataMapper;
         this.passwordEncoder = passwordEncoder;
@@ -63,16 +63,16 @@ public class UserService {
         return "Register success";
     }
 
-    public String login(String username, String rawPassword) {
+    public User login(String username, String rawPassword) {
         User user = userMapper.findByUsername(username);
         if (user == null) {
-            return "User not found";
+            throw new RuntimeException("User not found");
         }
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
-            return "Wrong password";
+            throw new RuntimeException("Wrong password");
         }
 
-        return JwtUtil.generateJWT(user.getUsername(), user.getId(), user.getRole());
+        return user;
     }
 
 }

@@ -70,4 +70,26 @@ public class FileController {
         }
     }
 
+    @PostMapping("/rename")
+    public ResponseEntity<String> renameFile(@RequestParam Long fileId, @RequestParam String newName){
+        try{
+            fileService.renameFile(fileId, newName);
+            return ResponseEntity.ok("Rename successful");
+        }
+        catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Rename failed: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/move")
+    public ResponseEntity<String> moveFile(@RequestParam Long fileId, @RequestParam Long newParentId){
+        try{
+            fileService.moveFile(fileId, newParentId);
+            return ResponseEntity.ok("Move successful");
+        }
+        catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Move failed: " + e.getMessage());
+        }
+    }
+
 }

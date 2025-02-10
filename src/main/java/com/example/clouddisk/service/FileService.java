@@ -15,9 +15,8 @@ import org.springframework.core.io.Resource;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 
 import static java.nio.file.Files.createDirectories;
@@ -62,7 +61,7 @@ public class FileService {
         return fileMetaDataMapper.listDirContents(fileId);
     }
 
-    public void deleteFileById(Long fileId) {
+    public void deleteFileById(Long fileId) throws IOException {
         Long userId = getCurrentUserId();
         String role = getCurrentUserRole();
         FileMetaData fileMetaData = fileMetaDataMapper.findById(fileId);
@@ -70,12 +69,28 @@ public class FileService {
         if (fileMetaData == null){
             throw new RuntimeException("File does not exist");
         }
-        // When file is directory, delete it and all contents
-//        if (fileMetaData.isDirectory()){
-//            throw new RuntimeException("File is a directory");
-//        }
         if (!fileMetaData.getUserId().equals(userId) && role.equals("USER")){
             throw new RuntimeException("Access denied");
+        }
+
+        Path path = Paths.get(fileMetaData.getFilePath());
+        if (fileMetaData.isDirectory()){
+            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
+        else{
+            Files.delete(path);
         }
 
         fileMetaDataMapper.deleteById(fileId);
@@ -184,5 +199,75 @@ public class FileService {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" +
                         fileMetaData.getFileName() + "\"")
                 .body(resource);
+    }
+
+    public void renameFile(Long fileId, String newName) throws IOException{
+        Long userId = getCurrentUserId();
+        String role = getCurrentUserRole();
+        FileMetaData fileMetaData = fileMetaDataMapper.findById(fileId);
+
+        if (fileMetaData == null){
+            throw new RuntimeException("File does not exist");
+        }
+        if (!fileMetaData.getUserId().equals(userId) && role.equals("USER")){
+            throw new RuntimeException("Access denied");
+        }
+
+        String oldPathStr = fileMetaData.getFilePath();
+        String newPathStr = oldPathStr.replace(fileMetaData.getFileName(), newName);
+
+        Path oldPath = Paths.get(oldPathStr);
+        Path newPath = Paths.get(newPathStr);
+        Files.move(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
+
+        fileMetaData.setFileName(newName);
+        fileMetaData.setFilePath(newPathStr);
+        fileMetaDataMapper.rename(fileMetaData);
+        
+        if (fileMetaData.isDirectory()){
+            fileMetaDataMapper.updateChildrenPaths(fileId, oldPathStr, newPathStr);
+        }        
+    }
+
+    public void moveFile(Long fileId, Long newParentId) throws IOException{
+
+        Long userId = getCurrentUserId();
+        String role = getCurrentUserRole();
+        FileMetaData newParentDir = fileMetaDataMapper.findById(newParentId);
+        FileMetaData fileMetaData = fileMetaDataMapper.findById(fileId);
+
+        if (fileMetaData == null){
+            throw new RuntimeException("File does not exist");
+        }
+        if (!fileMetaData.getUserId().equals(userId) && role.equals("USER")){
+            throw new RuntimeException("Access denied");
+        }
+
+        if (newParentDir == null){
+            throw new RuntimeException("New parent directory is null");
+        }
+        if (!newParentDir.isDirectory()){
+            throw new RuntimeException("New parent directory is not a directory");
+        }
+        if (!newParentDir.getUserId().equals(userId) && role.equals("USER")){
+            throw new RuntimeException("Access denied");
+        }
+
+        String oldPathStr = fileMetaData.getFilePath();
+        String newPathStr = newParentDir.getFilePath() + '/' + fileMetaData.getFileName();
+
+        Path oldPath = Paths.get(oldPathStr);
+        Path newPath = Paths.get(newPathStr);
+        Files.move(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
+
+
+        fileMetaData.setParentId(newParentId);
+        fileMetaData.setFilePath(newPathStr);
+        fileMetaDataMapper.move(fileMetaData);
+
+
+        if (fileMetaData.isDirectory()){
+            fileMetaDataMapper.updateChildrenPaths(fileId, oldPathStr, newPathStr);
+        }
     }
 }
