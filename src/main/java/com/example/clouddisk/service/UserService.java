@@ -22,16 +22,18 @@ public class UserService {
     private final UserMapper userMapper;
     private final FileMetaDataMapper fileMetaDataMapper;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final RedisService redisService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
     @Autowired
     public UserService(UserMapper userMapper, BCryptPasswordEncoder passwordEncoder,
-                       FileMetaDataMapper fileMetaDataMapper) {
+                       FileMetaDataMapper fileMetaDataMapper, RedisService redisService) {
         this.userMapper = userMapper;
         this.fileMetaDataMapper = fileMetaDataMapper;
         this.passwordEncoder = passwordEncoder;
+        this.redisService = redisService;
     }
 
     public String register(String username, String rawPassword) throws IOException {
@@ -55,6 +57,7 @@ public class UserService {
         userRootDirectory.setFileName("user" + userId);
         userRootDirectory.setUserId(userId);
         userRootDirectory.setFilePath(rootDirectoryPath);
+        userRootDirectory.setRoot(true);
         fileMetaDataMapper.insertDirectory(userRootDirectory);
 
         Path path = Paths.get(rootDirectoryPath);
@@ -72,7 +75,14 @@ public class UserService {
             throw new RuntimeException("Wrong password");
         }
 
+        redisService.set("user_id", user.getId());
+        redisService.set("user_role", user.getRole());
+
         return user;
     }
 
+    public void logout() {
+        redisService.delete("user_id");
+        redisService.delete("user_role");
+    }
 }

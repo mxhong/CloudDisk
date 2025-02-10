@@ -3,6 +3,7 @@ package com.example.clouddisk.service;
 import com.example.clouddisk.mapper.FileMetaDataMapper;
 import com.example.clouddisk.model.FileMetaData;
 import com.example.clouddisk.security.JwtAuth;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.net.HttpHeaders;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.UrlResource;
@@ -24,23 +25,53 @@ import static java.nio.file.Files.createDirectories;
 @Service
 public class FileService {
     private final FileMetaDataMapper fileMetaDataMapper;
+    private final RedisService redisService;
 
     @Autowired
-    public FileService(FileMetaDataMapper fileMetaDataMapper) {
+    public FileService(FileMetaDataMapper fileMetaDataMapper, RedisService redisService) {
         this.fileMetaDataMapper = fileMetaDataMapper;
+        this.redisService = redisService;
     }
 
     private Long getCurrentUserId() {
-        return (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+//        Object cachedId = redisService.get("user_id");
+//        if (cachedId != null) {
+//            return (Long) cachedId;
+//        }
+//        else{
+//            Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+//            redisService.set("user_id", userId);
+//            return userId;
+//        }
+        return redisService.get("user_id", new TypeReference<>() {
+        });
     }
+
 
     private String getCurrentUserRole(){
-        JwtAuth jwtAuth = (JwtAuth) SecurityContextHolder.getContext().getAuthentication();
-        return jwtAuth.getRole();
+//        JwtAuth jwtAuth = (JwtAuth) SecurityContextHolder.getContext().getAuthentication();
+//        return jwtAuth.getRole();
+        return redisService.get("user_role", new TypeReference<>() {
+        });
     }
 
+
     public FileMetaData getFileById(Long fileId) {
-        return fileMetaDataMapper.findById(fileId);
+        FileMetaData fileMetaData = redisService.get("file:" + fileId, new TypeReference<>() {});
+        if (fileMetaData == null) {
+            fileMetaData = fileMetaDataMapper.findById(fileId);
+            redisService.set("file:" + fileId, fileMetaData, 30*60);
+        }
+        return fileMetaData;
+    }
+
+    public FileMetaData getFileByPath(String path) {
+        FileMetaData fileMetaData = redisService.get(path, new TypeReference<>() {});
+        if (fileMetaData == null) {
+            fileMetaData = fileMetaDataMapper.findByPath(path);
+            redisService.set(path, fileMetaData, 30*60);
+        }
+        return fileMetaData;
     }
 
     public List<FileMetaData> listDirContents(Long fileId) {
@@ -58,7 +89,16 @@ public class FileService {
             throw new RuntimeException("Access denied");
         }
 
-        return fileMetaDataMapper.listDirContents(fileId);
+        String cacheKey = "file_list:" + fileId;
+        List<FileMetaData> fileList = redisService.get(cacheKey, new TypeReference<>() {
+        });
+
+        if (fileList == null){
+            fileList = fileMetaDataMapper.listDirContents(fileId);
+            redisService.set(cacheKey, fileList, 30 * 60);
+        }
+
+        return fileList;
     }
 
     public void deleteFileById(Long fileId) throws IOException {
@@ -69,13 +109,13 @@ public class FileService {
         if (fileMetaData == null){
             throw new RuntimeException("File does not exist");
         }
-        if (!fileMetaData.getUserId().equals(userId) && role.equals("USER")){
+        if ((!fileMetaData.getUserId().equals(userId) && role.equals("USER")) || fileMetaData.isRoot()){
             throw new RuntimeException("Access denied");
         }
 
         Path path = Paths.get(fileMetaData.getFilePath());
         if (fileMetaData.isDirectory()){
-            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(path, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     Files.delete(file);
@@ -100,7 +140,7 @@ public class FileService {
             throws IOException{
         Long userId = getCurrentUserId();
         String role = getCurrentUserRole();
-        FileMetaData parentDir = fileMetaDataMapper.findById(parentId);
+        FileMetaData parentDir = getFileById(parentId);
 
         // Validate parent directory
         if (parentDir == null) {
@@ -114,8 +154,8 @@ public class FileService {
         }
 
         String fullPath = parentDir.getFilePath() + '/' + name;
+        FileMetaData fileMetaData = getFileByPath(fullPath);
 
-        FileMetaData fileMetaData = fileMetaDataMapper.findByPath(fullPath);
         if (fileMetaData == null) {
             Path path = Paths.get(fullPath);
             createDirectories(path);
@@ -142,7 +182,7 @@ public class FileService {
 
         Long userId = getCurrentUserId();
         String role = getCurrentUserRole();
-        FileMetaData parentDir = fileMetaDataMapper.findById(parentId);
+        FileMetaData parentDir = getFileById(parentId);
 
         // Validate parent directory
         if (parentDir == null) {
@@ -156,10 +196,11 @@ public class FileService {
         }
 
         String fullUploadPath = parentDir.getFilePath() + '/' + filename;
+        FileMetaData fileMetaData = getFileByPath(fullUploadPath);
+
         Path path = Paths.get(fullUploadPath);
         Files.write(path, file.getBytes());
 
-        FileMetaData fileMetaData = fileMetaDataMapper.findByPath(fullUploadPath);
         if (fileMetaData != null) { // File exists
             fileMetaData.setSize(file.getSize());
             fileMetaDataMapper.update(fileMetaData);
@@ -179,7 +220,7 @@ public class FileService {
     public ResponseEntity<Resource> downloadFile(Long fileId) throws MalformedURLException {
         Long userId = getCurrentUserId();
         String role = getCurrentUserRole();
-        FileMetaData fileMetaData = fileMetaDataMapper.findById(fileId);
+        FileMetaData fileMetaData = getFileById(fileId);
 
         if (fileMetaData == null){
             throw new RuntimeException("File does not exist");
@@ -204,12 +245,12 @@ public class FileService {
     public void renameFile(Long fileId, String newName) throws IOException{
         Long userId = getCurrentUserId();
         String role = getCurrentUserRole();
-        FileMetaData fileMetaData = fileMetaDataMapper.findById(fileId);
+        FileMetaData fileMetaData = getFileById(fileId);
 
         if (fileMetaData == null){
             throw new RuntimeException("File does not exist");
         }
-        if (!fileMetaData.getUserId().equals(userId) && role.equals("USER")){
+        if ((!fileMetaData.getUserId().equals(userId) && role.equals("USER")) || fileMetaData.isRoot()){
             throw new RuntimeException("Access denied");
         }
 
@@ -233,13 +274,13 @@ public class FileService {
 
         Long userId = getCurrentUserId();
         String role = getCurrentUserRole();
-        FileMetaData newParentDir = fileMetaDataMapper.findById(newParentId);
-        FileMetaData fileMetaData = fileMetaDataMapper.findById(fileId);
+        FileMetaData newParentDir = getFileById(newParentId);
+        FileMetaData fileMetaData = getFileById(fileId);
 
         if (fileMetaData == null){
             throw new RuntimeException("File does not exist");
         }
-        if (!fileMetaData.getUserId().equals(userId) && role.equals("USER")){
+        if ((!fileMetaData.getUserId().equals(userId) && role.equals("USER")) || fileMetaData.isRoot()){
             throw new RuntimeException("Access denied");
         }
 

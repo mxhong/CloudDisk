@@ -41,7 +41,7 @@ public interface FileMetaDataMapper {
     void update(FileMetaData fileMetaData);
 
     // Insert directory
-    @Insert("INSERT INTO file_metadata (file_name, file_path, user_id, created_at, updated_at, is_directory, parent_id) VALUES (#{fileName}, #{filePath}, #{userId}, NOW(), NOW(), TRUE, #{parentId})")
+    @Insert("INSERT INTO file_metadata (file_name, file_path, user_id, created_at, updated_at, is_directory, parent_id, is_root) VALUES (#{fileName}, #{filePath}, #{userId}, NOW(), NOW(), TRUE, #{parentId}, #{isRoot})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insertDirectory(FileMetaData fileMetaData);
 

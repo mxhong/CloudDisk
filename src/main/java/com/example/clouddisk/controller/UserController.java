@@ -112,6 +112,8 @@ public class UserController {
     public ResponseEntity<?> logout(@CookieValue(name = "refreshToken", required = false) String refreshJWT,
                                     @RequestHeader("Authorization") String accessHeader,
                                     HttpServletResponse response)  {
+        // clear user ID and role cache
+        userService.logout();
         // Add old tokens to blacklist
         jwtUtil.addBlackList(refreshJWT);
         if (accessHeader != null && accessHeader.startsWith("Bearer ")) {

@@ -13,4 +13,5 @@ public class FileMetaData {
     private String updatedAt;
     private boolean isDirectory;
     private Long parentId;
+    private boolean isRoot;
 }
